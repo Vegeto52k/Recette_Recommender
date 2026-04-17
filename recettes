@@ -1,0 +1,52 @@
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Chargement du dataset
+df = pd.read_csv("recettes.csv", sep=";", encoding="cp1252")
+
+# Nettoyage simple des valeurs manquantes
+df["nom_de_la_recette"] = df["nom_de_la_recette"].fillna("")
+df["ingredients"] = df["ingredients"].fillna("")
+df["tags"] = df["tags"].fillna("")
+
+# Création d'un texte combiné pour chaque recette
+df["texte_combine"] = (
+    df["nom_de_la_recette"] + " " +
+    df["ingredients"] + " " +
+    df["tags"]
+)
+
+# Transformation du texte en vecteurs numériques
+vectorizer = TfidfVectorizer()
+matrice_tfidf = vectorizer.fit_transform(df["texte_combine"])
+
+# Calcul de similarité entre toutes les recettes
+matrice_similarite = cosine_similarity(matrice_tfidf, matrice_tfidf)
+
+def recommander_recettes(nom_recette, top_n=5):
+    # Vérifier que la recette existe
+    resultats = df.index[df["nom_de_la_recette"] == nom_recette].tolist()
+    if not resultats:
+        print(f"Recette introuvable : {nom_recette}")
+        return
+
+    idx = resultats[0]
+
+    # Récupérer les scores de similarité
+    scores = list(enumerate(matrice_similarite[idx]))
+
+    # Trier du plus similaire au moins similaire
+    scores = sorted(scores, key=lambda x: x[1], reverse=True)
+
+    # Enlever la recette elle-même
+    scores = [s for s in scores if s[0] != idx]
+
+    print(f"\nRecettes similaires à : {nom_recette}\n")
+
+    for i, (index_recette, score) in enumerate(scores[:top_n], start=1):
+        nom = df.iloc[index_recette]["nom_de_la_recette"]
+        print(f"{i}. {nom} (score={score:.3f})")
+
+# Exemple d'utilisation
+recommander_recettes("Tartiflette")
